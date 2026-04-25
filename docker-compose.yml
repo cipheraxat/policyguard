@@ -1,0 +1,54 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: policyguard-postgres
+    environment:
+      POSTGRES_USER: policyguard
+      POSTGRES_PASSWORD: policyguard
+      POSTGRES_DB: policyguard
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U policyguard -d policyguard"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: policyguard-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  presidio:
+    # If mcr.microsoft.com/presidio-analyzer is not pullable, fall back to presidio-analyzer:latest
+    # See .env.example for PRESIDIO_IMAGE override
+    image: ${PRESIDIO_IMAGE:-mcr.microsoft.com/presidio-analyzer:latest}
+    container_name: policyguard-presidio
+    ports:
+      - "5002:5001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:5001/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 6
+      start_period: 60s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

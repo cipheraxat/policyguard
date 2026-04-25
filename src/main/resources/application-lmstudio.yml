@@ -1,0 +1,11 @@
+policyguard:
+  chat:
+    provider: lmstudio
+    base-url: http://host.docker.internal:1234/v1
+    api-key: not-needed
+    model: local-model
+  embedding:
+    provider: lmstudio
+    base-url: http://host.docker.internal:1234/v1
+    api-key: not-needed
+    model: text-embedding-nomic-embed-text-v1.5

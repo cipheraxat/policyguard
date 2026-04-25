@@ -1,0 +1,15 @@
+# Stub profile: no external LLM or embedding service required.
+# StubChatModel and StubEmbeddingModel beans (both @Primary) are activated.
+# EmbeddingDimAssertionRunner is disabled (@Profile("!stub")).
+# Spring AI OpenAI auto-configuration is excluded to prevent bean conflicts.
+
+policyguard:
+  chat:
+    provider: stub
+  embedding:
+    provider: stub
+
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.autoconfigure.openai.OpenAiAutoConfiguration

@@ -1,0 +1,14 @@
+# OpenRouter for chat (no embeddings endpoint on OpenRouter).
+# Embeddings use a separate provider — configure policyguard.embedding.* separately
+# (e.g. activate lmstudio profile alongside this one, or set embedding.provider=openai).
+policyguard:
+  chat:
+    provider: openrouter
+    base-url: https://openrouter.ai/api/v1
+    api-key: ${OPENROUTER_API_KEY:sk-or-changeme}
+    model: ${OPENROUTER_MODEL:anthropic/claude-3-haiku}
+  embedding:
+    provider: lmstudio
+    base-url: http://host.docker.internal:1234/v1
+    api-key: not-needed
+    model: text-embedding-nomic-embed-text-v1.5

@@ -1,0 +1,442 @@
+[
+  {
+    "query_id": "qry-gold-001",
+    "question": "How long must customer PII be retained after account closure?",
+    "expected_status": "answered",
+    "expected_citation_doc": "POL-TEST-001",
+    "expected_citation_para": "Section 4.1, Paragraph 2",
+    "expected_escalation_reason": null,
+    "expected_reason": null,
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-002",
+    "question": "Can we request a waiver of the GDPR policy for a VIP customer?",
+    "expected_status": "escalated",
+    "expected_citation_doc": null,
+    "expected_citation_para": null,
+    "expected_escalation_reason": "policy_exception",
+    "expected_reason": null,
+    "risk_category": "HIGH"
+  },
+  {
+    "query_id": "qry-gold-003",
+    "question": "What is the refund policy for employees in Antarctica?",
+    "expected_status": "refused",
+    "expected_citation_doc": null,
+    "expected_citation_para": null,
+    "expected_escalation_reason": null,
+    "expected_reason": "no relevant documents",
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-004",
+    "question": "What is the first action to take when a security incident is detected?",
+    "expected_status": "answered",
+    "expected_citation_doc": "SOP-TEST-002",
+    "expected_citation_para": "Section 4.1, Paragraph 1",
+    "expected_escalation_reason": null,
+    "expected_reason": null,
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-005",
+    "question": "Who manages the System Administrator role in the access control framework?",
+    "expected_status": "answered",
+    "expected_citation_doc": "CTL-TEST-003",
+    "expected_citation_para": "Section 2.1, Paragraph 1",
+    "expected_escalation_reason": null,
+    "expected_reason": null,
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-006",
+    "question": "What medical insurance coverage tiers are available to employees?",
+    "expected_status": "answered",
+    "expected_citation_doc": "FAQ-TEST-004",
+    "expected_citation_para": "Section 1.1, Paragraph 2",
+    "expected_escalation_reason": null,
+    "expected_reason": null,
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-007",
+    "question": "What types of activities are prohibited under the Acceptable Use Policy?",
+    "expected_status": "answered",
+    "expected_citation_doc": "POL-TEST-005",
+    "expected_citation_para": "Section 3.1, Paragraph 1",
+    "expected_escalation_reason": null,
+    "expected_reason": null,
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-008",
+    "question": "How is customer PII classified in the data handling framework?",
+    "expected_status": "answered",
+    "expected_citation_doc": "SOP-TEST-006",
+    "expected_citation_para": "Section 2.1, Paragraph 2",
+    "expected_escalation_reason": null,
+    "expected_reason": null,
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-009",
+    "question": "Within what timeframe must a data breach be reported to the security team?",
+    "expected_status": "answered",
+    "expected_citation_doc": "POL-TEST-007",
+    "expected_citation_para": "Section 4.1, Paragraph 1",
+    "expected_escalation_reason": null,
+    "expected_reason": null,
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-010",
+    "question": "What are the steps to reset my company password using the self-service portal?",
+    "expected_status": "answered",
+    "expected_citation_doc": "FAQ-TEST-008",
+    "expected_citation_para": "Section 1.1, Paragraph 2",
+    "expected_escalation_reason": null,
+    "expected_reason": null,
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-011",
+    "question": "What is the stated purpose of the Data Retention and Privacy Policy?",
+    "expected_status": "answered",
+    "expected_citation_doc": "POL-TEST-001",
+    "expected_citation_para": "Section 1.1, Paragraph 1",
+    "expected_escalation_reason": null,
+    "expected_reason": null,
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-012",
+    "question": "How must electronic records be disposed of once they exceed their retention period?",
+    "expected_status": "answered",
+    "expected_citation_doc": "POL-TEST-001",
+    "expected_citation_para": "Section 4.2, Paragraph 2",
+    "expected_escalation_reason": null,
+    "expected_reason": null,
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-013",
+    "question": "What defines a Critical incident under the Incident Response Procedure?",
+    "expected_status": "answered",
+    "expected_citation_doc": "SOP-TEST-002",
+    "expected_citation_para": "Section 3, Paragraph 2",
+    "expected_escalation_reason": null,
+    "expected_reason": null,
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-014",
+    "question": "Who must be notified immediately when a Critical incident occurs during containment?",
+    "expected_status": "answered",
+    "expected_citation_doc": "SOP-TEST-002",
+    "expected_citation_para": "Section 4.2, Paragraph 2",
+    "expected_escalation_reason": null,
+    "expected_reason": null,
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-015",
+    "question": "What level of access do System Administrators have to production databases?",
+    "expected_status": "answered",
+    "expected_citation_doc": "CTL-TEST-003",
+    "expected_citation_para": "Section 3.1, Paragraph 2",
+    "expected_escalation_reason": null,
+    "expected_reason": null,
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-016",
+    "question": "How many vacation days are full-time employees entitled to annually?",
+    "expected_status": "answered",
+    "expected_citation_doc": "FAQ-TEST-004",
+    "expected_citation_para": "Section 3.1, Paragraph 2",
+    "expected_escalation_reason": null,
+    "expected_reason": null,
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-017",
+    "question": "What systems and devices fall within the scope of the Acceptable Use Policy?",
+    "expected_status": "answered",
+    "expected_citation_doc": "POL-TEST-005",
+    "expected_citation_para": "Section 2.1, Paragraph 2",
+    "expected_escalation_reason": null,
+    "expected_reason": null,
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-018",
+    "question": "What encryption standard must be used to store customer PII data at rest?",
+    "expected_status": "answered",
+    "expected_citation_doc": "SOP-TEST-006",
+    "expected_citation_para": "Section 3.1, Paragraph 1",
+    "expected_escalation_reason": null,
+    "expected_reason": null,
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-019",
+    "question": "Who must approve any request to disclose customer data to external parties?",
+    "expected_status": "answered",
+    "expected_citation_doc": "SOP-TEST-006",
+    "expected_citation_para": "Section 3.2, Paragraph 2",
+    "expected_escalation_reason": null,
+    "expected_reason": null,
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-020",
+    "question": "What information must be included in a security breach notification to individuals?",
+    "expected_status": "answered",
+    "expected_citation_doc": "POL-TEST-007",
+    "expected_citation_para": "Section 4.2, Paragraph 1",
+    "expected_escalation_reason": null,
+    "expected_reason": null,
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-021",
+    "question": "How does an employee submit a request for new software installation?",
+    "expected_status": "answered",
+    "expected_citation_doc": "FAQ-TEST-008",
+    "expected_citation_para": "Section 2.1, Paragraph 2",
+    "expected_escalation_reason": null,
+    "expected_reason": null,
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-022",
+    "question": "Who is the Compliance Officer responsible for data privacy oversight?",
+    "expected_status": "answered",
+    "expected_citation_doc": "POL-TEST-001",
+    "expected_citation_para": "Section 5.1, Paragraph 1",
+    "expected_escalation_reason": null,
+    "expected_reason": null,
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-023",
+    "question": "What is the escalation procedure for Critical security incidents?",
+    "expected_status": "answered",
+    "expected_citation_doc": "SOP-TEST-002",
+    "expected_citation_para": "Section 5.1, Paragraph 1",
+    "expected_escalation_reason": null,
+    "expected_reason": null,
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-024",
+    "question": "What process must be followed to request an exception to access control rules?",
+    "expected_status": "answered",
+    "expected_citation_doc": "CTL-TEST-003",
+    "expected_citation_para": "Section 4.1, Paragraph 1",
+    "expected_escalation_reason": null,
+    "expected_reason": null,
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-025",
+    "question": "What retirement savings plan does the company offer to employees?",
+    "expected_status": "answered",
+    "expected_citation_doc": "FAQ-TEST-004",
+    "expected_citation_para": "Section 2.1, Paragraph 2",
+    "expected_escalation_reason": null,
+    "expected_reason": null,
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-026",
+    "question": "What additional breach reporting is required for HIPAA-covered data breaches?",
+    "expected_status": "answered",
+    "expected_citation_doc": "POL-TEST-007",
+    "expected_citation_para": "Section 4.2, Paragraph 2",
+    "expected_escalation_reason": null,
+    "expected_reason": null,
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-027",
+    "question": "How do I configure and connect to the company VPN for remote access?",
+    "expected_status": "answered",
+    "expected_citation_doc": "FAQ-TEST-008",
+    "expected_citation_para": "Section 4.1, Paragraph 2",
+    "expected_escalation_reason": null,
+    "expected_reason": null,
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-028",
+    "question": "How do GDPR requirements apply to our EU customer data processing?",
+    "expected_status": "escalated",
+    "expected_citation_doc": null,
+    "expected_citation_para": null,
+    "expected_escalation_reason": "regulatory_interpretation",
+    "expected_reason": null,
+    "risk_category": "HIGH"
+  },
+  {
+    "query_id": "qry-gold-029",
+    "question": "Should a client's account data be available to view for external auditors?",
+    "expected_status": "escalated",
+    "expected_citation_doc": null,
+    "expected_citation_para": null,
+    "expected_escalation_reason": "customer_data_exposure",
+    "expected_reason": null,
+    "risk_category": "HIGH"
+  },
+  {
+    "query_id": "qry-gold-030",
+    "question": "Should we recommend that clients invest their pension savings in company bonds?",
+    "expected_status": "escalated",
+    "expected_citation_doc": null,
+    "expected_citation_para": null,
+    "expected_escalation_reason": "financial_advice",
+    "expected_reason": null,
+    "risk_category": "HIGH"
+  },
+  {
+    "query_id": "qry-gold-031",
+    "question": "Can we bypass the access control requirement for an emergency project deadline?",
+    "expected_status": "escalated",
+    "expected_citation_doc": null,
+    "expected_citation_para": null,
+    "expected_escalation_reason": "policy_exception",
+    "expected_reason": null,
+    "risk_category": "HIGH"
+  },
+  {
+    "query_id": "qry-gold-032",
+    "question": "How does HIPAA apply to our patient data retention compliance requirement?",
+    "expected_status": "escalated",
+    "expected_citation_doc": null,
+    "expected_citation_para": null,
+    "expected_escalation_reason": "regulatory_interpretation",
+    "expected_reason": null,
+    "risk_category": "HIGH"
+  },
+  {
+    "query_id": "qry-gold-033",
+    "question": "Is there an exception to the data retention policy for legacy archive systems?",
+    "expected_status": "escalated",
+    "expected_citation_doc": null,
+    "expected_citation_para": null,
+    "expected_escalation_reason": "policy_exception",
+    "expected_reason": null,
+    "risk_category": "HIGH"
+  },
+  {
+    "query_id": "qry-gold-034",
+    "question": "Would you advise us to transfer our employee 401k funds to a new external provider?",
+    "expected_status": "escalated",
+    "expected_citation_doc": null,
+    "expected_citation_para": null,
+    "expected_escalation_reason": "financial_advice",
+    "expected_reason": null,
+    "risk_category": "HIGH"
+  },
+  {
+    "query_id": "qry-gold-035",
+    "question": "Can a user's PII account data be available to share with our technology partners?",
+    "expected_status": "escalated",
+    "expected_citation_doc": null,
+    "expected_citation_para": null,
+    "expected_escalation_reason": "customer_data_exposure",
+    "expected_reason": null,
+    "risk_category": "HIGH"
+  },
+  {
+    "query_id": "qry-gold-036",
+    "question": "Does the PCI-DSS compliance requirement apply to our internal card data storage system?",
+    "expected_status": "escalated",
+    "expected_citation_doc": null,
+    "expected_citation_para": null,
+    "expected_escalation_reason": "regulatory_interpretation",
+    "expected_reason": null,
+    "risk_category": "HIGH"
+  },
+  {
+    "query_id": "qry-gold-037",
+    "question": "How do we onboard subcontractors from Mars for our offshore construction program?",
+    "expected_status": "refused",
+    "expected_citation_doc": null,
+    "expected_citation_para": null,
+    "expected_escalation_reason": null,
+    "expected_reason": "no relevant documents",
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-038",
+    "question": "What food is available in the company cafeteria on Thursdays?",
+    "expected_status": "refused",
+    "expected_citation_doc": null,
+    "expected_citation_para": null,
+    "expected_escalation_reason": null,
+    "expected_reason": "no relevant documents",
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-039",
+    "question": "How many parking spaces are allocated on the executive floor of the building?",
+    "expected_status": "refused",
+    "expected_citation_doc": null,
+    "expected_citation_para": null,
+    "expected_escalation_reason": null,
+    "expected_reason": "no relevant documents",
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-040",
+    "question": "What is the process for obtaining a company vehicle for personal travel?",
+    "expected_status": "refused",
+    "expected_citation_doc": null,
+    "expected_citation_para": null,
+    "expected_escalation_reason": null,
+    "expected_reason": "no relevant documents",
+    "risk_category": null
+  },
+  {
+    "query_id": "qry-gold-041",
+    "question": "Can we recommend that the finance team allocate reserves to invest in government bonds?",
+    "expected_status": "escalated",
+    "expected_citation_doc": null,
+    "expected_citation_para": null,
+    "expected_escalation_reason": "financial_advice",
+    "expected_reason": null,
+    "risk_category": "HIGH"
+  },
+  {
+    "query_id": "qry-gold-042",
+    "question": "Can we override the mandatory security control requirement for a temporary system migration?",
+    "expected_status": "escalated",
+    "expected_citation_doc": null,
+    "expected_citation_para": null,
+    "expected_escalation_reason": "policy_exception",
+    "expected_reason": null,
+    "risk_category": "HIGH"
+  },
+  {
+    "query_id": "qry-gold-043",
+    "question": "How does the SOX compliance requirement apply to our financial reporting systems?",
+    "expected_status": "escalated",
+    "expected_citation_doc": null,
+    "expected_citation_para": null,
+    "expected_escalation_reason": "regulatory_interpretation",
+    "expected_reason": null,
+    "risk_category": "HIGH"
+  },
+  {
+    "query_id": "qry-gold-044",
+    "question": "Can a customer's SSN data be available to view or share with the fraud investigation team?",
+    "expected_status": "escalated",
+    "expected_citation_doc": null,
+    "expected_citation_para": null,
+    "expected_escalation_reason": "customer_data_exposure",
+    "expected_reason": null,
+    "risk_category": "HIGH"
+  }
+]

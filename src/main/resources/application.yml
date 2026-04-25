@@ -1,0 +1,70 @@
+policyguard:
+  chat:
+    provider: lmstudio
+    base-url: http://host.docker.internal:1234/v1
+    api-key: not-needed
+    model: local-model
+  embedding:
+    provider: lmstudio
+    base-url: http://host.docker.internal:1234/v1
+    api-key: not-needed
+    model: text-embedding-nomic-embed-text-v1.5
+    dim: 1536
+  presidio:
+    base-url: http://localhost:5002
+  retrieval:
+    top-k: 5
+    rrf-k: 60
+  confidence:
+    threshold: 0.65
+  risk:
+    patterns:
+      - category: regulatory_interpretation
+        regex: '\b(FINRA|SEC|GDPR|PCI-DSS|SOX|HIPAA)\b.*\b(interpret|apply|compliance requirement)\b'
+      - category: customer_data_exposure
+        regex: '\b(customer|client|user)\b.*\b(data|SSN|account|PII)\b.*\b(access|view|share|disclose)\b'
+      - category: policy_exception
+        regex: '\b(exception|waiver|override|bypass)\b.*\b(policy|control|requirement)\b'
+      - category: financial_advice
+        regex: '\b(advise|recommend|should we|can we)\b.*\b(invest|allocate|transfer|withdraw)\b'
+
+spring:
+  profiles:
+    active: lmstudio
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/policyguard
+    username: policyguard
+    password: policyguard
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  flyway:
+    enabled: true
+    placeholders:
+      embedding_dim: ${policyguard.embedding.dim}
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  # Satisfy Spring AI OpenAI starter conditional checks without conflicting with our custom AiConfig beans.
+  # AiConfig (@Profile("!stub")) creates the actual beans from policyguard.* properties.
+  ai:
+    openai:
+      api-key: not-used
+    retry:
+      max-attempts: 1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
