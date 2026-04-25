@@ -66,6 +66,7 @@ class QueryServiceTest {
 
         // queryRepository.save() returns the saved entity
         when(queryRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(queryRepository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
         when(answerRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         queryService = new QueryService(piiRedactionGateway, riskClassifier, hybridRetriever,
@@ -129,7 +130,7 @@ class QueryServiceTest {
         assertThat(answered.retrievalHitsCount()).isEqualTo(1);
 
         verify(answerRepository).save(any(Answer.class));
-        verify(queryRepository, times(2)).save(any(Query.class)); // initial + status update
+        verify(queryRepository, times(2)).saveAndFlush(any(Query.class)); // initial + status update
 
         // Verify audit events: prompt_received, pii_redaction, risk_classification,
         //   retrieval, generation, response_sent  (6 total)

@@ -1,9 +1,11 @@
 package com.policyguard.service.pii;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -19,8 +21,13 @@ public class PresidioClient {
     private final RestClient restClient;
 
     public PresidioClient(PolicyguardProperties properties) {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofMillis(properties.getPresidio().getConnectTimeoutMs()));
+        factory.setReadTimeout(Duration.ofMillis(properties.getPresidio().getReadTimeoutMs()));
+
         this.restClient = RestClient.builder()
                 .baseUrl(properties.getPresidio().getBaseUrl())
+                .requestFactory(factory)
                 .build();
     }
 

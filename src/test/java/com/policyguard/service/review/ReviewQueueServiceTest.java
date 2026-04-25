@@ -22,7 +22,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.ListOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.policyguard.domain.ReviewQueueItem;
 import com.policyguard.repository.ReviewQueueItemRepository;
 
@@ -44,7 +43,7 @@ class ReviewQueueServiceTest {
     void setUp() {
         // Lenient: some tests throw before reaching Redis; avoid UnnecessaryStubbingException
         lenient().when(redisTemplate.opsForList()).thenReturn(listOperations);
-        service = new ReviewQueueService(repository, redisTemplate, new ObjectMapper());
+        service = new ReviewQueueService(repository, redisTemplate);
     }
 
     @Test

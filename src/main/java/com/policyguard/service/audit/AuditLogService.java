@@ -1,6 +1,7 @@
 package com.policyguard.service.audit;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.UUID;
 
@@ -34,7 +35,7 @@ public class AuditLogService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void append(String queryId, String eventType, String actor,
                        Map<String, Object> input, Map<String, Object> output) {
-        String logId = "log-" + UUID.randomUUID().toString().substring(0, 12);
+        String logId = "log-" + UUID.randomUUID();
 
         AuditLog entry = new AuditLog();
         entry.setLogId(logId);
@@ -43,7 +44,7 @@ public class AuditLogService {
         entry.setActor(actor);
         entry.setInputData(input);
         entry.setOutputData(output);
-        entry.setTimestamp(OffsetDateTime.now());
+        entry.setTimestamp(OffsetDateTime.now(ZoneOffset.UTC));
 
         auditLogRepository.save(entry);
     }

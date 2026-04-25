@@ -16,6 +16,7 @@ import com.policyguard.api.review.dto.ResolveRequest;
 import com.policyguard.api.review.dto.ResolveResponse;
 import com.policyguard.api.review.dto.ReviewQueueItemDto;
 import com.policyguard.api.review.dto.ReviewQueueResponse;
+import com.policyguard.config.PolicyguardProperties;
 import com.policyguard.domain.Query;
 import com.policyguard.domain.ReviewQueueItem;
 import com.policyguard.repository.QueryRepository;
@@ -23,19 +24,38 @@ import com.policyguard.service.query.QueryOutcome;
 import com.policyguard.service.query.QueryService;
 import com.policyguard.service.review.ReviewQueueService;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import jakarta.annotation.PostConstruct;
+
 @RestController
 public class ReviewController {
+
+    private static final Logger log = LoggerFactory.getLogger(ReviewController.class);
 
     private final ReviewQueueService reviewQueueService;
     private final QueryRepository queryRepository;
     private final QueryService queryService;
+    private final PolicyguardProperties properties;
 
     public ReviewController(ReviewQueueService reviewQueueService,
                             QueryRepository queryRepository,
-                            QueryService queryService) {
+                            QueryService queryService,
+                            PolicyguardProperties properties) {
         this.reviewQueueService = reviewQueueService;
         this.queryRepository = queryRepository;
         this.queryService = queryService;
+        this.properties = properties;
+    }
+
+    @PostConstruct
+    void warnIfAllowListEmpty() {
+        var reviewers = properties.getReviewers();
+        if (reviewers == null || reviewers.getAllowedIds() == null
+                || reviewers.getAllowedIds().isEmpty()) {
+            log.warn("policyguard.reviewers.allowed-ids is empty — reviewer auth is in DEV mode "
+                    + "(any non-blank X-Reviewer-Id is accepted). Populate the allow-list for production.");
+        }
     }
 
     @GetMapping("/api/review-queue")
@@ -69,8 +89,18 @@ public class ReviewController {
             @RequestBody ResolveRequest request) {
 
         // Trusted-header v1 auth: header must be present and match body reviewerId
-        if (reviewerHeader == null || !reviewerHeader.equals(request.reviewerId())) {
+        if (reviewerHeader == null || reviewerHeader.isBlank()
+                || !reviewerHeader.equals(request.reviewerId())) {
             return ResponseEntity.status(401).build();
+        }
+
+        // Allow-list (defense-in-depth). Empty list = dev mode (warned at startup).
+        var reviewers = properties.getReviewers();
+        List<String> allowed = (reviewers == null || reviewers.getAllowedIds() == null)
+                ? List.of()
+                : reviewers.getAllowedIds();
+        if (!allowed.isEmpty() && !allowed.contains(reviewerHeader)) {
+            return ResponseEntity.status(403).build();
         }
 
         ReviewQueueItem item = reviewQueueService.resolve(

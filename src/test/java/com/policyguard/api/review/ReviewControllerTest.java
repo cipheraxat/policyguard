@@ -21,6 +21,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.policyguard.config.PolicyguardProperties;
 import com.policyguard.domain.Query;
 import com.policyguard.domain.ReviewQueueItem;
 import com.policyguard.repository.QueryRepository;
@@ -46,6 +47,17 @@ class ReviewControllerTest {
 
     @MockBean
     private QueryService queryService;
+
+    @MockBean
+    private PolicyguardProperties policyguardProperties;
+
+    @org.junit.jupiter.api.BeforeEach
+    void stubPropertiesForReviewerAuth() {
+        // Empty allow-list ⇒ dev mode (any non-blank reviewer header accepted),
+        // matching the existing test expectations for "reviewer-1".
+        PolicyguardProperties.Reviewers reviewers = new PolicyguardProperties.Reviewers();
+        when(policyguardProperties.getReviewers()).thenReturn(reviewers);
+    }
 
     @Test
     void listPending_returnsItemsWithOriginalQuestion() throws Exception {

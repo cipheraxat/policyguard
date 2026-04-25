@@ -1,6 +1,7 @@
 package com.policyguard.service.query;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -74,7 +75,7 @@ public class QueryService {
      */
     @Transactional
     public QueryOutcome handle(String question, String userId, Map<String, Object> filters) {
-        String queryId = "qry-" + UUID.randomUUID().toString().substring(0, 12);
+        String queryId = "qry-" + UUID.randomUUID();
         int originalLength = question == null ? 0 : question.length();
 
         // Step 1: PII redaction
@@ -88,7 +89,7 @@ public class QueryService {
         query.setRedacted(redactionResult.wasRedacted());
         query.setRedactionLog(Map.of("entities", redactionResult.entitiesFound()));
         query.setStatus("pending");
-        queryRepository.save(query);
+        queryRepository.saveAndFlush(query);
 
         // Step 3: Audit prompt_received (raw length only — no PII)
         auditLogService.append(queryId, "prompt_received", userId,
@@ -113,7 +114,7 @@ public class QueryService {
             ReviewQueueItem item = reviewQueueService.enqueue(queryId, risk.category(), risk.riskLevel());
 
             query.setStatus("escalated");
-            queryRepository.save(query);
+            queryRepository.saveAndFlush(query);
 
             auditLogService.append(queryId, "escalation", "system",
                     Map.of(),
@@ -162,7 +163,7 @@ public class QueryService {
             persistAnswer(queryId, "I cannot answer this question based on the available policy documents.",
                     Collections.emptyList(), 0.0, Collections.emptyList());
             query.setStatus("refused");
-            queryRepository.save(query);
+            queryRepository.saveAndFlush(query);
 
             auditLogService.append(queryId, "generation", "system",
                     Map.of(),
@@ -188,7 +189,7 @@ public class QueryService {
             persistAnswer(queryId, cr.responseText(),
                     Collections.emptyList(), cr.confidence(), hits);
             query.setStatus("refused");
-            queryRepository.save(query);
+            queryRepository.saveAndFlush(query);
 
             auditLogService.append(queryId, "response_sent", actor,
                     Map.of(),
@@ -205,7 +206,7 @@ public class QueryService {
             persistAnswer(queryId, cr.responseText(),
                     Collections.emptyList(), cr.confidence(), hits);
             query.setStatus("refused");
-            queryRepository.save(query);
+            queryRepository.saveAndFlush(query);
 
             auditLogService.append(queryId, "response_sent", actor,
                     Map.of(),
@@ -218,7 +219,7 @@ public class QueryService {
         // ANSWER
         persistAnswer(queryId, cr.responseText(), cr.citations(), cr.confidence(), hits);
         query.setStatus("answered");
-        queryRepository.save(query);
+        queryRepository.saveAndFlush(query);
 
         auditLogService.append(queryId, "response_sent", actor,
                 Map.of(),
@@ -237,7 +238,7 @@ public class QueryService {
         answer.setCitations(serializeCitations(citations));
         answer.setConfidenceScore(confidence);
         answer.setRetrievalHits(serializeHits(hits));
-        answer.setGeneratedAt(OffsetDateTime.now());
+        answer.setGeneratedAt(OffsetDateTime.now(ZoneOffset.UTC));
         answerRepository.save(answer);
     }
 

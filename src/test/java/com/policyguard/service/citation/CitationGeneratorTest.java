@@ -14,6 +14,8 @@ import static org.mockito.Mockito.when;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.chat.client.ChatClient;
@@ -172,6 +174,36 @@ class CitationGeneratorTest {
         assertThat(result.citations()).hasSize(2);
         assertThat(result.citations().get(0).chunkId()).isEqualTo("c1");
         assertThat(result.citations().get(1).chunkId()).isEqualTo("c2");
+    }
+
+    @ParameterizedTest(name = "[{index}] {2}")
+    @CsvSource(delimiter = '|', value = {
+            "[Doc: POL-001, Para: Section 3.1]                       | true  | exact match",
+            "[Doc:  POL-001 ,  Para:  Section 3.1 ]                  | true  | extra whitespace inside tag",
+            "[Doc:POL-001,Para:Section 3.1]                          | true  | no whitespace inside tag",
+            "Some prose [Doc: POL-001, Para: Section 3.1] more text  | true  | tag embedded in prose",
+            "[Doc: pol-001, Para: Section 3.1]                       | false | docId case mismatch (strict)",
+            "[Doc: POL-001, Para: section 3.1]                       | false | paraRef case mismatch (strict)",
+            "[Doc: POL-002, Para: Section 3.1]                       | false | unknown docId"
+    })
+    void citationDriftBehavior_isStrictOnCaseLenientOnWhitespace(
+            String llmOutput, boolean expectedVerified, String description) {
+        List<RetrievalHit> hits = List.of(
+                hit("chk-1", "POL-001", "Section 3.1", "text", 0.9));
+
+        when(callSpec.content()).thenReturn(llmOutput);
+
+        CitationResult result = generator.generate("q", hits);
+
+        assertThat(result.citations())
+                .as("expected one citation parsed for: %s", description)
+                .hasSize(1);
+        Citation c = result.citations().get(0);
+        if (expectedVerified) {
+            assertThat(c.chunkId()).as(description).isEqualTo("chk-1");
+        } else {
+            assertThat(c.chunkId()).as(description).isNull();
+        }
     }
 
     @Test

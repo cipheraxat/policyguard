@@ -17,36 +17,6 @@ public interface DocumentChunkRepository extends JpaRepository<DocumentChunk, UU
     List<DocumentChunk> findByDocumentId(String documentId);
 
     /**
-     * Semantic similarity search using pgvector cosine distance operator.
-     * Returns up to {@code limit} chunks ordered by ascending cosine distance
-     * (i.e. descending cosine similarity) to the query embedding.
-     *
-     * <p>Note: the {@code :queryEmbedding} parameter is bound as a native SQL
-     * {@code ::vector} cast so pgvector can parse the float-array representation.
-     * Actual implementation may require a native query; this stub is wired up
-     * fully in Phase 7 (retrieval).
-     */
-    @Query(value = """
-            SELECT * FROM document_chunks
-            ORDER BY embedding <=> CAST(:queryEmbedding AS vector)
-            LIMIT :limit
-            """, nativeQuery = true)
-    List<DocumentChunk> findSimilar(@Param("queryEmbedding") String queryEmbedding,
-                                    @Param("limit") int limit);
-
-    /**
-     * Full-text search using Postgres {@code ts_rank} on the GIN tsvector index.
-     */
-    @Query(value = """
-            SELECT *, ts_rank(to_tsvector('english', text), plainto_tsquery('english', :query)) AS rank
-            FROM document_chunks
-            WHERE to_tsvector('english', text) @@ plainto_tsquery('english', :query)
-            ORDER BY rank DESC
-            LIMIT :limit
-            """, nativeQuery = true)
-    List<DocumentChunk> findByFullText(@Param("query") String query, @Param("limit") int limit);
-
-    /**
      * Semantic similarity search returning raw columns for hybrid-retrieval use.
      * Returns {@code Object[]} rows with columns:
      * {@code [chunk_id, document_id, paragraph_ref, text, sim, metadata_text]}.

@@ -15,6 +15,8 @@ public class PolicyguardProperties {
     private Retrieval retrieval = new Retrieval();
     private Confidence confidence = new Confidence();
     private Risk risk = new Risk();
+    private Reviewers reviewers = new Reviewers();
+    private Ingestion ingestion = new Ingestion();
 
     // ── Getters / setters ────────────────────────────────────────────────────
 
@@ -38,6 +40,12 @@ public class PolicyguardProperties {
 
     public Risk getRisk() { return risk; }
     public void setRisk(Risk risk) { this.risk = risk; }
+
+    public Reviewers getReviewers() { return reviewers; }
+    public void setReviewers(Reviewers reviewers) { this.reviewers = reviewers; }
+
+    public Ingestion getIngestion() { return ingestion; }
+    public void setIngestion(Ingestion ingestion) { this.ingestion = ingestion; }
 
     // ── Nested config classes ─────────────────────────────────────────────────
 
@@ -78,9 +86,35 @@ public class PolicyguardProperties {
 
     public static class Presidio {
         private String baseUrl = "http://localhost:5002";
+        private int connectTimeoutMs = 1000;
+        private int readTimeoutMs = 5000;
 
         public String getBaseUrl() { return baseUrl; }
         public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
+        public int getConnectTimeoutMs() { return connectTimeoutMs; }
+        public void setConnectTimeoutMs(int connectTimeoutMs) { this.connectTimeoutMs = connectTimeoutMs; }
+        public int getReadTimeoutMs() { return readTimeoutMs; }
+        public void setReadTimeoutMs(int readTimeoutMs) { this.readTimeoutMs = readTimeoutMs; }
+    }
+
+    /**
+     * Reviewer auth allow-list (trusted-header v1).
+     * Empty list ⇒ any non-blank {@code X-Reviewer-Id} value is accepted (dev mode);
+     * a startup WARN is logged. Non-empty ⇒ strict allow-list enforcement.
+     */
+    public static class Reviewers {
+        private List<String> allowedIds = new ArrayList<>();
+
+        public List<String> getAllowedIds() { return allowedIds; }
+        public void setAllowedIds(List<String> allowedIds) { this.allowedIds = allowedIds; }
+    }
+
+    public static class Ingestion {
+        /** Maximum permitted upload size in bytes. Default 25 MB. */
+        private long maxFileBytes = 25L * 1024 * 1024;
+
+        public long getMaxFileBytes() { return maxFileBytes; }
+        public void setMaxFileBytes(long maxFileBytes) { this.maxFileBytes = maxFileBytes; }
     }
 
     public static class Chunking {

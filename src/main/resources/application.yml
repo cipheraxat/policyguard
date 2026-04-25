@@ -12,6 +12,14 @@ policyguard:
     dim: 1536
   presidio:
     base-url: http://localhost:5002
+    connect-timeout-ms: 1000
+    read-timeout-ms: 5000
+  reviewers:
+    # Empty list ⇒ dev mode (any non-blank X-Reviewer-Id accepted, WARN logged at startup).
+    # Populate for production strict allow-list enforcement.
+    allowed-ids: []
+  ingestion:
+    max-file-bytes: 26214400  # 25 MB
   retrieval:
     top-k: 5
     rrf-k: 60
@@ -31,6 +39,11 @@ policyguard:
 spring:
   profiles:
     active: lmstudio
+
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 25MB
 
   datasource:
     url: jdbc:postgresql://localhost:5432/policyguard

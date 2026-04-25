@@ -1,6 +1,7 @@
 package com.policyguard.service.review;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -12,7 +13,6 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.policyguard.domain.ReviewQueueItem;
 import com.policyguard.repository.ReviewQueueItemRepository;
 
@@ -26,20 +26,16 @@ public class ReviewQueueService {
 
     private final ReviewQueueItemRepository reviewQueueItemRepository;
     private final StringRedisTemplate redisTemplate;
-    @SuppressWarnings("unused")
-    private final ObjectMapper objectMapper;
 
     public ReviewQueueService(ReviewQueueItemRepository reviewQueueItemRepository,
-                              StringRedisTemplate redisTemplate,
-                              ObjectMapper objectMapper) {
+                              StringRedisTemplate redisTemplate) {
         this.reviewQueueItemRepository = reviewQueueItemRepository;
         this.redisTemplate = redisTemplate;
-        this.objectMapper = objectMapper;
     }
 
     @Transactional
     public ReviewQueueItem enqueue(String queryId, String escalationReason, String riskCategory) {
-        String itemId = "rev-" + UUID.randomUUID().toString().substring(0, 8);
+        String itemId = "rev-" + UUID.randomUUID();
 
         ReviewQueueItem item = new ReviewQueueItem();
         item.setItemId(itemId);
@@ -87,7 +83,7 @@ public class ReviewQueueService {
         item.setReviewerId(reviewerId);
         // For overridden, store the reviewer's direct answer in reviewerNotes
         item.setReviewerNotes("overridden".equals(decision) ? overrideAnswer : notes);
-        item.setResolvedAt(OffsetDateTime.now());
+        item.setResolvedAt(OffsetDateTime.now(ZoneOffset.UTC));
 
         ReviewQueueItem saved = reviewQueueItemRepository.save(item);
 
