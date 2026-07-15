@@ -26,7 +26,6 @@ def postgres_url():
 def test_query_pipeline_answered(postgres_url, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", postgres_url)
     monkeypatch.setenv("POLICYGUARD_PROFILE", "stub")
-    monkeypatch.setenv("POLICYGUARD_PRESIDIO_STUB", "true")
 
     from policyguard.config import get_settings
     from policyguard.deps import bootstrap, build_ingestion_service, build_query_service, get_session_factory
@@ -37,7 +36,6 @@ def test_query_pipeline_answered(postgres_url, monkeypatch):
     reset_engine()
     get_settings.cache_clear()
     settings = get_settings()
-    settings.presidio_stub = True
     settings.profile = "stub"
     bootstrap(settings)
     init_db(settings.embedding_dim)

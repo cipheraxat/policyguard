@@ -14,7 +14,7 @@ from policyguard.services.chunking import ChunkingService
 from policyguard.services.citation import CitationGenerator
 from policyguard.services.gate import ConfidenceGate
 from policyguard.services.ingestion import DocumentIngestionService
-from policyguard.services.pii import PiiRedactionGateway, PresidioClient
+from policyguard.services.pii import PiiRedactionGateway, build_pii_detector
 from policyguard.services.query import QueryService
 from policyguard.services.retrieval import HybridRetriever
 from policyguard.services.review import ReviewQueueService
@@ -57,7 +57,7 @@ def get_app_services() -> AppServices:
 def build_query_service(session: Session, apps: AppServices | None = None) -> QueryService:
     apps = apps or get_app_services()
     settings = apps.settings
-    pii = PiiRedactionGateway(PresidioClient(settings))
+    pii = PiiRedactionGateway(build_pii_detector(settings))
     risk = RiskClassifier(settings)
     rrf = RrfFusionService()
     retriever = HybridRetriever(session, apps.embedding, rrf, settings)
@@ -71,7 +71,7 @@ def build_query_service(session: Session, apps: AppServices | None = None) -> Qu
 def build_ingestion_service(session: Session, apps: AppServices | None = None) -> DocumentIngestionService:
     apps = apps or get_app_services()
     settings = apps.settings
-    pii = PiiRedactionGateway(PresidioClient(settings))
+    pii = PiiRedactionGateway(build_pii_detector(settings))
     chunking = ChunkingService(settings)
     return DocumentIngestionService(session, pii, chunking, apps.embedding, settings)
 

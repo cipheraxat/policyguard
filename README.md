@@ -20,7 +20,7 @@ Query ──► PII Redaction ──► Risk Classifier ──► HybridRetrieve
 | Capability | Detail |
 |---|---|
 | **Hybrid Retrieval** | Postgres FTS + pgvector cosine similarity, fused with RRF |
-| **PII Redaction** | Microsoft Presidio integration; placeholders before any LLM call |
+| **PII Redaction** | In-process regex detector (email, phone, SSN, cards, IP, …); placeholders before any LLM call |
 | **Risk Classification** | Configurable regex patterns → escalation or direct answer path |
 | **Citation Generation** | OpenAI-compatible chat; `[Doc: X, Para: Y]` citations |
 | **Confidence Gate** | Mean of top-3 hit scores; refuse below threshold / unverifiable cites |
@@ -34,7 +34,7 @@ Query ──► PII Redaction ──► Risk Classifier ──► HybridRetrieve
 ### Prerequisites
 
 - Python 3.11+
-- Docker & Docker Compose (Postgres/pgvector, Redis, Presidio)
+- Docker & Docker Compose (Postgres/pgvector, Redis)
 
 ### 1 — Start backing services
 
@@ -88,11 +88,13 @@ POLICYGUARD_PROFILE=stub policyguard-eval -o target/eval-report.json
 
 ## Provider profiles
 
-| `POLICYGUARD_PROFILE` | Chat | Embeddings | Presidio |
+| `POLICYGUARD_PROFILE` | Chat | Embeddings | PII |
 |---|---|---|---|
-| `stub` (default for tests) | deterministic stub | SHA-256 L2 vectors | stubbed (no HTTP) |
-| `lmstudio` | local OpenAI-compatible | local | real |
-| `openrouter` | OpenRouter | local/override | real |
+| `stub` (default for tests) | deterministic stub | SHA-256 L2 vectors | in-process regex |
+| `lmstudio` | local OpenAI-compatible | local | in-process regex |
+| `openrouter` | OpenRouter | local/override | in-process regex |
+
+Set `POLICYGUARD_PII_STUB=true` to disable redaction (useful for isolated tests).
 
 ## API
 

@@ -77,13 +77,11 @@ def ensure_fixtures(session) -> None:
 def run_eval(output: Path | None = None) -> EvalReport:
     settings = get_settings()
     settings.profile = "stub"
-    settings.presidio_stub = True
     get_settings.cache_clear()
     # rebuild settings with stub
     from policyguard.config import Settings
 
     s = Settings(POLICYGUARD_PROFILE="stub")
-    s.presidio_stub = True
     bootstrap(s)
     init_db(s.embedding_dim)
 

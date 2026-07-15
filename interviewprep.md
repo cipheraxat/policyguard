@@ -13,7 +13,7 @@ Detailed data flows, pipelines, and talking points grounded in the current Pytho
 3. **Refusing** answers when retrieval confidence or citation verification fails  
 4. Writing an **immutable audit trail** of every pipeline step  
 
-Stack: **FastAPI + SQLAlchemy + Postgres/pgvector + Redis + Presidio Analyzer + OpenAI-compatible chat/embeddings** (or deterministic stubs).
+Stack: **FastAPI + SQLAlchemy + Postgres/pgvector + Redis + in-process regex PII redaction + OpenAI-compatible chat/embeddings** (or deterministic stubs).
 
 ---
 
@@ -32,7 +32,7 @@ Stack: **FastAPI + SQLAlchemy + Postgres/pgvector + Redis + Presidio Analyzer + 
         ┌───────────┼──────────┐       │                  │
         ▼           ▼          ▼       ▼                  ▼
    PiiGateway  RiskClass  HybridRetriever   Chunking   Postgres
-   (Presidio)  (regex)    + CitationGen     + Embed    review_queue
+   (regex)     (regex)    + CitationGen     + Embed    review_queue
                           + ConfidenceGate             (+ Redis list)
                                        │
                                        ▼
@@ -47,7 +47,7 @@ Stack: **FastAPI + SQLAlchemy + Postgres/pgvector + Redis + Presidio Analyzer + 
 | **Providers** | Pluggable chat + embeddings (`stub` / LM Studio / OpenRouter) |
 | **Postgres + pgvector** | Source of truth for docs, chunks, queries, answers, review, audit |
 | **Redis** | Optional side-channel list of pending review item IDs |
-| **Presidio** | External HTTP analyzer for PII span detection (stubbable) |
+| **PII (RegexPiiDetector)** | In-process structured PII detection; no sidecar container |
 
 ---
 
@@ -118,8 +118,8 @@ Ingest builds a **redacted, searchable policy corpus**. Query never sends raw PI
 
 ### What never leaves ingestion
 
-- Raw PII from the PDF is **not** stored in `documents` / `document_chunks` when Presidio finds it (placeholders like `<EMAIL>`, `<PERSON>`).  
-- With `POLICYGUARD_PRESIDIO_STUB=true`, redaction is a no-op (local/dev).
+- Raw PII from the PDF is **not** stored in `documents` / `document_chunks` when the regex detector finds it (placeholders like `<EMAIL>`, `<SSN>`).  
+- With `POLICYGUARD_PII_STUB=true`, redaction is a no-op (isolated tests).
 
 ### Ingest response (HTTP 202)
 
@@ -163,27 +163,28 @@ question
 
 ### Stage A — PII redaction
 
-1. `PresidioClient.analyze(text)` → HTTP `POST {presidio}/analyze` **or** stub `[]`  
-2. Spans replaced **right-to-left** with typed placeholders:
+1. `RegexPiiDetector.analyze(text)` runs **in-process** (no Docker/HTTP analyzer)  
+2. Detects structured PII via regex (+ Luhn check for credit cards):
 
-| Presidio type | Placeholder |
-|---|---|
-| PERSON | `<PERSON>` |
-| EMAIL_ADDRESS | `<EMAIL>` |
-| PHONE_NUMBER | `<PHONE>` |
-| CREDIT_CARD | `<CREDIT_CARD>` |
-| US_SSN | `<SSN>` |
-| US_BANK_NUMBER | `<BANK_ACCOUNT>` |
-| IP_ADDRESS | `<IP>` |
-| other | `<ENTITY_TYPE>` |
+| Entity type | How detected | Placeholder |
+|---|---|---|
+| EMAIL_ADDRESS | email regex | `<EMAIL>` |
+| PHONE_NUMBER | US-style phone regex | `<PHONE>` |
+| US_SSN | `###-##-####` | `<SSN>` |
+| CREDIT_CARD | digit groups + Luhn | `<CREDIT_CARD>` |
+| IP_ADDRESS | IPv4 regex | `<IP>` |
+| US_BANK_NUMBER | "routing/account" + digits | `<BANK_ACCOUNT>` |
+| PERSON | Mr/Mrs/Ms/Dr/Prof + name | `<PERSON>` |
+| other | — | `<ENTITY_TYPE>` |
 
-3. Persist `queries` row:
+3. Overlapping spans are deduped (prefer longer match); then replaced **right-to-left** with placeholders.  
+4. Persist `queries` row:
    - `original_prompt` = **redacted** text (name is historical; raw question is not stored)
    - `redacted` = bool
    - `redaction_log` = `{ "entities": [...] }`
    - `status` = `pending`
 
-**Interview talking point:** PII is stripped **before** risk classification, retrieval embeddings, and LLM prompt construction.
+**Interview talking point:** PII is stripped **before** risk classification, retrieval embeddings, and LLM prompt construction — with zero extra infra beyond the app process. Trade-off: weaker on free-form names vs NER models (Presidio/spaCy); strong on structured identifiers.
 
 ### Stage B — Risk classification (early exit)
 
@@ -379,11 +380,13 @@ Retrieval scores below threshold or LLM invents a Doc/Para not in hits → **ref
 
 ## 10. Provider profiles (how external calls change)
 
-| `POLICYGUARD_PROFILE` | Chat | Embeddings | Presidio |
+| `POLICYGUARD_PROFILE` | Chat | Embeddings | PII |
 |---|---|---|---|
-| `stub` | Deterministic: echo first excerpt + cite, or fixed refusal | SHA-256 → L2 vector (dim N) | Stubbed (no HTTP) |
-| `lmstudio` | Local OpenAI-compatible | Local | Real analyzer |
-| `openrouter` | OpenRouter API | Local unless overridden | Real analyzer |
+| `stub` | Deterministic: echo first excerpt + cite, or fixed refusal | SHA-256 → L2 vector (dim N) | In-process regex |
+| `lmstudio` | Local OpenAI-compatible | Local | In-process regex |
+| `openrouter` | OpenRouter API | Local unless overridden | In-process regex |
+
+Optional: `POLICYGUARD_PII_STUB=true` disables redaction for isolated tests.
 
 **Stub embedding nuance:** cosine similarity between any two stub vectors ≈ **0.75**, so default threshold **0.65** usually **passes**; tests can raise threshold to force refusal.
 
@@ -407,7 +410,7 @@ Retrieval scores below threshold or LLM invents a Doc/Para not in hits → **ref
 Use these as “why did you build it this way?” answers.
 
 1. **PII before everything else**  
-   Same gateway on ingest and query so embeddings, stored text, risk regex, and LLM prompts never see raw PII (when Presidio is live).
+   Same gateway on ingest and query so embeddings, stored text, risk regex, and LLM prompts never see raw PII. Detector is in-process regex — no Presidio sidecar.
 
 2. **Risk gate before retrieval/LLM**  
    Saves cost and avoids generating answers for questions that must be human-reviewed (exceptions, data sharing, regulatory interpretation).
@@ -425,7 +428,7 @@ Use these as “why did you build it this way?” answers.
    Privacy-preserving persistence; raw user text length is audited, not the raw string.
 
 7. **Stub profile**  
-   Full pipeline tests/evals without GPU, API keys, or Presidio — critical for CI and demos.
+   Full pipeline tests/evals without GPU or API keys — critical for CI and demos. PII still runs in-process unless explicitly stubbed.
 
 8. **Postgres as system of record; Redis optional**  
    Review queue works if Redis is down; Redis only accelerates listing/notification patterns.
@@ -438,7 +441,7 @@ Use these as “why did you build it this way?” answers.
 A: Redact PII → store query → classify risk. High risk goes to review queue (202). Low risk: embed query, hybrid retrieve FTS+vector with RRF, prompt LLM with excerpts only, parse/verify citations, confidence-gate, persist answer or refuse, emit audit events.
 
 **Q: How do you prevent the LLM from leaking PII?**  
-A: Presidio detects spans; we replace with placeholders before classification, embedding, and chat. Ingest also redacts before storage/embedding, so the corpus itself is scrubbed.
+A: An in-process `RegexPiiDetector` finds structured PII (email, phone, SSN, Luhn-valid cards, IP, titled names, labeled bank numbers); we replace spans with placeholders before classification, embedding, and chat. Ingest redacts before storage/embedding, so the corpus itself is scrubbed. No external PII service.
 
 **Q: How does hybrid search work?**  
 A: Parallel pgvector nearest neighbors and Postgres full-text search, each fetching 2× top_k, fused with Reciprocal Rank Fusion, then optional metadata filters, then truncate to top_k.
@@ -449,14 +452,14 @@ A: Citation parser looks up Doc+Para in the retrieved hit set. Unmatched cites g
 **Q: How do you handle questions you’re not allowed to auto-answer?**  
 A: Regex risk classifier categories force escalation to `review_queue`. Reviewers approve (then run RAG), reject, or override with a manual answer.
 
-**Q: How do you test without OpenAI/Presidio?**  
-A: `POLICYGUARD_PROFILE=stub` — stub chat/embeddings, Presidio no-op, plus an offline eval harness against `gold-set.json`.
+**Q: How do you test without OpenAI?**  
+A: `POLICYGUARD_PROFILE=stub` — stub chat/embeddings, plus an offline eval harness against `gold-set.json`. PII is local regex (or `POLICYGUARD_PII_STUB=true` to disable).
 
 **Q: What’s the confidence score?**  
 A: Mean of the top 3 retrieval hit scores (not token logprobs). Compared to `confidence_threshold` (default 0.65).
 
 **Q: Where would you take this next?**  
-A: Pluggable PII detectors beyond Presidio; learned risk model; multi-tenancy; async ingest workers; citation grounding metrics in eval (PII metrics currently stubbed to 1.0); stricter audit retention / INSERT-only DB role.
+A: Stronger PII (spaCy/GLiNER NER) behind the same `PiiDetector` protocol; learned risk model; multi-tenancy; async ingest workers; citation grounding metrics in eval (PII metrics currently stubbed to 1.0); stricter audit retention / INSERT-only DB role.
 
 ---
 
@@ -467,7 +470,7 @@ A: Pluggable PII detectors beyond Presidio; learned risk model; multi-tenancy; a
 | HTTP API | `src/policyguard/api/routes.py` |
 | Query orchestration | `src/policyguard/services/query.py` |
 | Ingestion | `src/policyguard/services/ingestion.py` |
-| PII | `src/policyguard/services/pii.py` |
+| PII (regex detector + gateway) | `src/policyguard/services/pii.py` |
 | Risk | `src/policyguard/services/risk.py` |
 | Retrieval + RRF | `src/policyguard/services/retrieval.py`, `rrf.py` |
 | Citations | `src/policyguard/services/citation.py` |
@@ -480,7 +483,7 @@ A: Pluggable PII detectors beyond Presidio; learned risk model; multi-tenancy; a
 | Config | `src/policyguard/config.py` |
 | Models / schema init | `src/policyguard/models/__init__.py` |
 | Migrations | `alembic/versions/0001_init.py` |
-| Compose (Postgres, Redis, Presidio) | `docker-compose.yml` |
+| Compose (Postgres, Redis) | `docker-compose.yml` |
 
 ---
 

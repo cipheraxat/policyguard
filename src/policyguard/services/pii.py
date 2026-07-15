@@ -1,19 +1,18 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
-from typing import Any
-
-import httpx
+from typing import Any, Protocol
 
 from policyguard.config import Settings
 
 
 @dataclass
-class PresidioEntity:
+class PiiEntity:
     entity_type: str
     start: int
     end: int
-    score: float = 0.0
+    score: float = 1.0
 
 
 @dataclass
@@ -38,49 +37,113 @@ def to_placeholder(entity_type: str) -> str:
     return PLACEHOLDERS.get(entity_type, f"<{entity_type}>")
 
 
-class PresidioClient:
-    def __init__(self, settings: Settings) -> None:
-        self._settings = settings
-        self._base = settings.presidio_base_url.rstrip("/")
+def _luhn_ok(digits: str) -> bool:
+    if not digits.isdigit() or not (13 <= len(digits) <= 19):
+        return False
+    total = 0
+    reverse = digits[::-1]
+    for i, ch in enumerate(reverse):
+        n = int(ch)
+        if i % 2 == 1:
+            n *= 2
+            if n > 9:
+                n -= 9
+        total += n
+    return total % 10 == 0
 
-    def analyze(self, text: str, language: str = "en") -> list[PresidioEntity]:
-        if self._settings.presidio_stub:
+
+# Structured PII patterns (in-process; no external analyzer service).
+_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
+    ("EMAIL_ADDRESS", re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")),
+    (
+        "PHONE_NUMBER",
+        re.compile(
+            r"(?<!\d)(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}(?!\d)"
+        ),
+    ),
+    ("US_SSN", re.compile(r"\b\d{3}-\d{2}-\d{4}\b")),
+    (
+        "CREDIT_CARD",
+        re.compile(r"\b(?:\d[ -]*?){13,19}\b"),
+    ),
+    (
+        "IP_ADDRESS",
+        re.compile(
+            r"\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}"
+            r"(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b"
+        ),
+    ),
+    (
+        "US_BANK_NUMBER",
+        re.compile(r"(?i)\b(?:routing|account)\s*(?:number|#|no\.?)?\s*[:#]?\s*(\d{8,17})\b"),
+    ),
+    (
+        "PERSON",
+        re.compile(
+            r"\b(?:Mr|Mrs|Ms|Dr|Prof)\.?\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\b"
+        ),
+    ),
+]
+
+
+class PiiDetector(Protocol):
+    def analyze(self, text: str, language: str = "en") -> list[PiiEntity]: ...
+
+
+class RegexPiiDetector:
+    """Detect common structured PII with regex (+ Luhn for cards)."""
+
+    def analyze(self, text: str, language: str = "en") -> list[PiiEntity]:
+        if not text:
             return []
-        timeout = httpx.Timeout(
-            connect=self._settings.presidio_connect_timeout_ms / 1000,
-            read=self._settings.presidio_read_timeout_ms / 1000,
-            write=5.0,
-            pool=5.0,
-        )
-        with httpx.Client(timeout=timeout) as client:
-            resp = client.post(
-                f"{self._base}/analyze",
-                json={"text": text, "language": language},
-            )
-            resp.raise_for_status()
-            data = resp.json() or []
-        return [
-            PresidioEntity(
-                entity_type=e.get("entity_type") or e.get("entityType"),
-                start=int(e["start"]),
-                end=int(e["end"]),
-                score=float(e.get("score", 0)),
-            )
-            for e in data
-        ]
+        found: list[PiiEntity] = []
+        for entity_type, pattern in _PATTERNS:
+            for m in pattern.finditer(text):
+                if entity_type == "US_BANK_NUMBER" and m.lastindex:
+                    start, end = m.start(1), m.end(1)
+                else:
+                    start, end = m.start(), m.end()
+                if entity_type == "CREDIT_CARD":
+                    digits = re.sub(r"\D", "", text[start:end])
+                    if not _luhn_ok(digits):
+                        continue
+                found.append(PiiEntity(entity_type, start, end, 1.0))
+        return _dedupe_overlaps(found)
+
+
+class StubPiiDetector:
+    """No-op detector for tests that want to isolate redaction side effects."""
+
+    def analyze(self, text: str, language: str = "en") -> list[PiiEntity]:
+        return []
+
+
+def build_pii_detector(settings: Settings) -> PiiDetector:
+    if settings.pii_stub:
+        return StubPiiDetector()
+    return RegexPiiDetector()
+
+
+def _dedupe_overlaps(entities: list[PiiEntity]) -> list[PiiEntity]:
+    """Prefer longer spans when ranges overlap; then earlier start."""
+    ordered = sorted(entities, key=lambda e: (-(e.end - e.start), e.start, e.entity_type))
+    kept: list[PiiEntity] = []
+    for ent in ordered:
+        if any(ent.start < k.end and ent.end > k.start for k in kept):
+            continue
+        kept.append(ent)
+    return sorted(kept, key=lambda e: e.start)
 
 
 class PiiRedactionGateway:
-    def __init__(self, client: PresidioClient) -> None:
-        self._client = client
+    def __init__(self, detector: PiiDetector) -> None:
+        self._detector = detector
 
     def redact(self, text: str | None) -> RedactionResult:
         if text is None:
             text = ""
-        entities = self._client.analyze(text, "en")
+        entities = self._detector.analyze(text, "en")
         sorted_ents = sorted(entities, key=lambda e: e.start, reverse=True)
-        chars = list(text)
-        # replace using string slicing for correctness with multi-char placeholders
         result = text
         for ent in sorted_ents:
             placeholder = to_placeholder(ent.entity_type)

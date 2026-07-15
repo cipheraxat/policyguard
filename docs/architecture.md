@@ -8,7 +8,7 @@ Spring `ChatClient` / `StubChatModel` are replaced by OpenAI-compatible and stub
 ```mermaid
 flowchart TD
     Client([Client]) -->|POST /api/query| QC[QueryController]
-    QC --> PII[PiiRedactionGateway\nPresidioClient]
+    QC --> PII[PiiRedactionGateway\nRegexPiiDetector]
     PII --> RC[RiskClassifier\nregex patterns]
 
     RC -->|low risk| RET[HybridRetriever\nBM25 + pgvector]
@@ -48,7 +48,7 @@ flowchart TD
 | Component | Class | Responsibility |
 |---|---|---|
 | `QueryController` | `com.policyguard.controller.QueryController` | Accepts query, orchestrates pipeline |
-| `PiiRedactionGateway` | `com.policyguard.service.pii.PiiRedactionGateway` | Calls Presidio; redacts PII spans from question |
+| `PiiRedactionGateway` | `policyguard.services.pii.PiiRedactionGateway` | In-process regex PII detect + placeholder redaction |
 | `RiskClassifier` | `com.policyguard.service.risk.RiskClassifier` | Regex-based routing: answered vs escalated |
 | `HybridRetriever` | `com.policyguard.service.retrieval.HybridRetriever` | Combines BM25 (full-text) + cosine similarity (pgvector) |
 | `CitationGenerator` | `com.policyguard.service.citation.CitationGenerator` | Calls ChatClient with retrieved chunks; formats citations |
@@ -71,11 +71,11 @@ flowchart LR
 
 ## Profile Matrix
 
-| Profile | ChatModel | EmbeddingModel | PresidioClient |
+| Profile | Chat | Embeddings | PII |
 |---|---|---|---|
-| *(none / prod)* | OpenAI GPT-4o | OpenAI text-embedding-3-small | Real HTTP call |
-| `stub` | `StubChatModel` | `StubEmbeddingModel` | Real HTTP call |
-| `test` + `stub` | `StubChatModel` | `StubEmbeddingModel` | Mockito `@Primary` mock |
+| `stub` | `StubChatProvider` | `StubEmbeddingProvider` | `RegexPiiDetector` (in-process) |
+| `lmstudio` / `openrouter` | OpenAI-compatible chat | OpenAI-compatible embeddings | `RegexPiiDetector` (in-process) |
+| `POLICYGUARD_PII_STUB=true` | (unchanged) | (unchanged) | `StubPiiDetector` (no-op) |
 
 ## Stub Embedding Similarity
 
