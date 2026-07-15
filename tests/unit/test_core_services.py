@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from policyguard.services.chunking import ChunkingService
 from policyguard.services.gate import ConfidenceGate, GateDecision
-from policyguard.services.pii import PiiRedactionGateway, PresidioClient, to_placeholder
+from policyguard.services.pii import (
+    PiiEntity,
+    PiiRedactionGateway,
+    RegexPiiDetector,
+    to_placeholder,
+)
 from policyguard.services.risk import RiskClassifier
 from policyguard.services.rrf import RetrievalHit, RrfFusionService
 from policyguard.config import Settings
@@ -16,20 +21,32 @@ def test_to_placeholder():
 
 
 def test_pii_redaction_right_to_left():
-    class FakeClient:
+    class FakeDetector:
         def analyze(self, text, language="en"):
-            from policyguard.services.pii import PresidioEntity
-
             return [
-                PresidioEntity("PERSON", 0, 4),
-                PresidioEntity("EMAIL_ADDRESS", 10, 25),
+                PiiEntity("PERSON", 0, 4),
+                PiiEntity("EMAIL_ADDRESS", 10, 25),
             ]
 
-    gw = PiiRedactionGateway(FakeClient())  # type: ignore[arg-type]
+    gw = PiiRedactionGateway(FakeDetector())
     result = gw.redact("John lives a@b.com now")
     assert "<PERSON>" in result.redacted_text
     assert "<EMAIL>" in result.redacted_text
     assert result.was_redacted
+
+
+def test_regex_pii_detector_email_and_ssn():
+    detector = RegexPiiDetector()
+    text = "Contact jane@acme.com or SSN 123-45-6789"
+    entities = detector.analyze(text)
+    types = {e.entity_type for e in entities}
+    assert "EMAIL_ADDRESS" in types
+    assert "US_SSN" in types
+    gw = PiiRedactionGateway(detector)
+    redacted = gw.redact(text)
+    assert "<EMAIL>" in redacted.redacted_text
+    assert "<SSN>" in redacted.redacted_text
+    assert "jane@acme.com" not in redacted.redacted_text
 
 
 def test_risk_classifier_policy_exception():

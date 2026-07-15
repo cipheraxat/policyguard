@@ -40,12 +40,8 @@ class Settings(BaseSettings):
     )
     embedding_dim: int = Field(default=1536, alias="POLICYGUARD_EMBEDDING_DIM")
 
-    # Presidio
-    presidio_base_url: str = Field(default="http://localhost:5002", alias="POLICYGUARD_PRESIDIO_BASE_URL")
-    presidio_connect_timeout_ms: int = 1000
-    presidio_read_timeout_ms: int = 5000
-    # When True (default for stub/tests), skip HTTP and return no entities
-    presidio_stub: bool = Field(default=False, alias="POLICYGUARD_PRESIDIO_STUB")
+    # PII — in-process regex detector; stub disables redaction for isolated tests
+    pii_stub: bool = Field(default=False, alias="POLICYGUARD_PII_STUB")
 
     # Reviewers — empty = dev mode
     reviewers_allowed_ids: list[str] = Field(default_factory=list, alias="POLICYGUARD_REVIEWERS_ALLOWED_IDS")
@@ -80,11 +76,9 @@ class Settings(BaseSettings):
     )
 
     def apply_profile_defaults(self) -> None:
-        """Adjust provider URLs / stub flags from POLICYGUARD_PROFILE."""
+        """Adjust provider URLs from POLICYGUARD_PROFILE."""
         profile = (self.profile or "stub").lower()
-        if profile == "stub":
-            self.presidio_stub = True
-        elif profile == "lmstudio":
+        if profile == "lmstudio":
             self.chat_base_url = self.chat_base_url or "http://host.docker.internal:1234/v1"
             self.embedding_base_url = self.embedding_base_url or "http://host.docker.internal:1234/v1"
         elif profile == "openrouter":

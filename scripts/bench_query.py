@@ -16,7 +16,6 @@ def main() -> None:
     reset_engine()
     get_settings.cache_clear()
     settings = Settings(POLICYGUARD_PROFILE="stub")
-    settings.presidio_stub = True
     bootstrap(settings)
     init_db(settings.embedding_dim)
     SessionLocal = get_session_factory()
