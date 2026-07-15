@@ -1,5 +1,8 @@
 # Architecture
 
+Python / FastAPI rewrite of PolicyGuard. Controllers map to FastAPI routes under `policyguard.api.routes`;
+Spring `ChatClient` / `StubChatModel` are replaced by OpenAI-compatible and stub providers in `policyguard.providers`.
+
 ## Request Flow
 
 ```mermaid
