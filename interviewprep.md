@@ -19,24 +19,34 @@ Stack: **FastAPI + SQLAlchemy + Postgres/pgvector + Redis + in-process regex PII
 
 ## 2. System map (components & data stores)
 
-```
-┌─────────────┐     HTTP      ┌──────────────────┐
-│   Client    │──────────────►│  FastAPI routes  │
-└─────────────┘               │  (api/routes.py) │
-                              └────────┬─────────┘
-                                       │
-                    ┌──────────────────┼──────────────────┐
-                    ▼                  ▼                  ▼
-            QueryService      DocumentIngestion    ReviewQueueService
-                    │                  │                  │
-        ┌───────────┼──────────┐       │                  │
-        ▼           ▼          ▼       ▼                  ▼
-   PiiGateway  RiskClass  HybridRetriever   Chunking   Postgres
-   (regex)     (regex)    + CitationGen     + Embed    review_queue
-                          + ConfidenceGate             (+ Redis list)
-                                       │
-                                       ▼
-                              AuditLogService ──► audit_logs
+```mermaid
+flowchart LR
+    Client([Client]) -->|HTTP| API[FastAPI routes]
+
+    API --> QS[QueryService]
+    API --> ING[DocumentIngestionService]
+    API --> RV[ReviewQueueService]
+
+    QS --> PII[PiiRedactionGateway]
+    QS --> RISK[RiskClassifier]
+    QS --> RET[HybridRetriever]
+    QS --> CIT[CitationGenerator]
+    QS --> GATE[ConfidenceGate]
+    QS --> AUDIT[AuditLogService]
+
+    ING --> PII
+    ING --> CHUNK[ChunkingService]
+    ING --> EMB[EmbeddingProvider]
+
+    RET --> EMB
+    CIT --> CHAT[ChatProvider]
+
+    PII --> DET[RegexPiiDetector]
+    RV --> PG[(Postgres)]
+    RV -.-> REDIS[(Redis optional)]
+    QS --> PG
+    ING --> PG
+    AUDIT --> PG
 ```
 
 | Layer | Responsibility |
@@ -55,31 +65,33 @@ Stack: **FastAPI + SQLAlchemy + Postgres/pgvector + Redis + in-process regex PII
 
 ```mermaid
 flowchart TB
-    subgraph Ingest["Document ingestion path"]
-        PDF[PDF / text upload] --> EXTRACT[pypdf extract]
-        EXTRACT --> PII1[PII redact]
-        PII1 --> DOC[(documents.content_raw)]
-        PII1 --> CHUNK[ChunkingService]
-        CHUNK --> EMB[EmbeddingProvider]
-        EMB --> CHUNKS[(document_chunks + vector)]
+    subgraph INGEST["Ingestion path"]
+        direction TB
+        PDF["PDF / text upload"] --> EXTRACT["pypdf extract"]
+        EXTRACT --> PII1["PII redact"]
+        PII1 --> DOC[("documents")]
+        PII1 --> CHUNK["ChunkingService"]
+        CHUNK --> EMB["EmbeddingProvider"]
+        EMB --> CHUNKS[("document_chunks + vectors")]
     end
 
-    subgraph Query["Query path"]
-        Q[POST /api/query] --> PII2[PII redact]
-        PII2 --> QROW[(queries)]
-        PII2 --> RISK{RiskClassifier}
-        RISK -->|HIGH| REV[(review_queue)]
-        RISK -->|LOW| RET[HybridRetriever]
-        RET --> LLM[CitationGenerator]
-        LLM --> GATE{ConfidenceGate}
-        GATE -->|pass| ANS[(answers answered)]
-        GATE -->|fail| REF[(answers refused)]
-        REV --> HUMAN[Human resolve]
-        HUMAN -->|approved| RET
+    subgraph QUERY["Query path"]
+        direction TB
+        Q["POST /api/query"] --> PII2["PII redact"]
+        PII2 --> QROW[("queries")]
+        PII2 --> RISK{"RiskClassifier"}
+        RISK -->|"HIGH"| REV[("review_queue")]
+        RISK -->|"LOW"| RET["HybridRetriever"]
+        RET --> LLM["CitationGenerator"]
+        LLM --> GATE{"ConfidenceGate"}
+        GATE -->|"pass"| ANS[("answers: answered")]
+        GATE -->|"fail"| REF[("answers: refused")]
+        REV --> HUMAN["Human resolve"]
+        HUMAN -->|"approved"| RET
     end
 
-    CHUNKS -.->|retrieved evidence| RET
-    QROW --> AUDIT[(audit_logs)]
+    CHUNKS -.->|"retrieved evidence"| RET
+    QROW --> AUDIT[("audit_logs")]
     ANS --> AUDIT
     REF --> AUDIT
     REV --> AUDIT
@@ -94,6 +106,20 @@ Ingest builds a **redacted, searchable policy corpus**. Query never sends raw PI
 
 **Entry:** `POST /api/documents` (multipart PDF + optional JSON `metadata`)  
 **Orchestrator:** `DocumentIngestionService`
+
+```mermaid
+flowchart LR
+    A["Upload PDF"] --> B{"Size OK?"}
+    B -->|"no"| X["HTTP 400"]
+    B -->|"yes"| C["pypdf extract text"]
+    C --> D["PII redact"]
+    D --> E[("documents.content_raw")]
+    D --> F["Chunk by section / paragraph"]
+    F --> G["embed_batch"]
+    G --> H[("document_chunks + vector")]
+    H --> I["ANALYZE - best effort"]
+    I --> J["HTTP 202 documentId + chunks"]
+```
 
 ### Step-by-step data transformation
 
@@ -140,25 +166,34 @@ Ingest builds a **redacted, searchable policy corpus**. Query never sends raw PI
 **Body:** `{ "question": "...", "userId": "...", "filters": { optional } }`  
 **Orchestrator:** `QueryService.handle`
 
-### High-level stages
+```mermaid
+flowchart TD
+    START["question + userId"] --> PII["PII redact"]
+    PII --> SAVE[("persist Query status=pending")]
+    SAVE --> AUD1["audit: prompt_received + pii_redaction"]
+    AUD1 --> RISK{"RiskClassifier"}
 
-```
-question
-  → PII redact
-  → persist Query (status=pending)
-  → audit: prompt_received, pii_redaction
-  → RiskClassifier
-       ├─ HIGH → enqueue review → status=escalated → HTTP 202
-       └─ LOW  → retrieval pipeline
-                    → HybridRetriever
-                    → (no hits?) refuse
-                    → CitationGenerator (LLM)
-                    → explicit refusal? refuse
-                    → ConfidenceGate
-                         ├─ REFUSE → refuse
-                         └─ ANSWER → answer
-                    → persist Answer + update Query.status
-                    → audit: retrieval, generation, response_sent
+    RISK -->|"HIGH"| ESC["enqueue review_queue"]
+    ESC --> ST_ESC["status = escalated"]
+    ST_ESC --> R202["HTTP 202 Escalated"]
+
+    RISK -->|"LOW"| RET["HybridRetriever"]
+    RET --> HITS{"Any hits?"}
+    HITS -->|"no"| REF1["refuse: no documents"]
+    HITS -->|"yes"| LLM["CitationGenerator LLM"]
+    LLM --> EXPL{"Exact refusal text?"}
+    EXPL -->|"yes"| REF2["refuse: model declined"]
+    EXPL -->|"no"| GATE{"ConfidenceGate"}
+    GATE -->|"fail"| REF3["refuse: low confidence or bad cites"]
+    GATE -->|"pass"| ANS["status = answered"]
+
+    REF1 --> DONE200["HTTP 200 + Answer row"]
+    REF2 --> DONE200
+    REF3 --> DONE200
+    ANS --> DONE200
+
+    DONE200 --> AUD2["audit: retrieval + generation + response_sent"]
+    R202 --> AUD3["audit: risk + escalation + response_sent"]
 ```
 
 ### Stage A — PII redaction
@@ -184,7 +219,7 @@ question
    - `redaction_log` = `{ "entities": [...] }`
    - `status` = `pending`
 
-**Interview talking point:** PII is stripped **before** risk classification, retrieval embeddings, and LLM prompt construction — with zero extra infra beyond the app process. Trade-off: weaker on free-form names vs NER models (Presidio/spaCy); strong on structured identifiers.
+**Interview talking point:** PII is stripped **before** risk classification, retrieval embeddings, and LLM prompt construction — with zero extra infra beyond the app process. Trade-off: weaker on free-form names vs NER models (spaCy/GLiNER); strong on structured identifiers.
 
 ### Stage B — Risk classification (early exit)
 
@@ -209,6 +244,19 @@ Default categories:
 
 ### Stage C — Hybrid retrieval
 
+```mermaid
+flowchart TB
+    Q["Redacted query text"] --> EMB["Embed query"]
+    Q --> FTS["Postgres FTS / keyword"]
+    EMB --> VEC["pgvector cosine search"]
+    VEC --> A["Semantic top_k x 2"]
+    FTS --> B["Keyword top_k x 2"]
+    A --> RRF["RRF fusion k=60"]
+    B --> RRF
+    RRF --> FILT["Optional filters"]
+    FILT --> OUT["Top retrieval_top_k hits"]
+```
+
 `HybridRetriever.retrieve(redacted_text, filters, top_k)`:
 
 1. **Embed query** with same embedding provider used at ingest  
@@ -229,6 +277,19 @@ Default categories:
 
 ### Stage D — Citation generation (LLM)
 
+```mermaid
+flowchart LR
+    HITS["Retrieval hits"] --> FMT["Format excerpts with Doc/Para tags"]
+    FMT --> PROMPT["Build grounded prompt"]
+    PROMPT --> CHAT["ChatProvider.complete"]
+    CHAT --> PARSE["Parse citations"]
+    PARSE --> VERIFY{"Cite matches a hit?"}
+    VERIFY -->|"yes"| OK["chunk_id + snippet"]
+    VERIFY -->|"no"| BAD["chunk_id = null"]
+    OK --> CONF["confidence = mean top-3 scores"]
+    BAD --> CONF
+```
+
 `CitationGenerator.generate(query, hits)`:
 
 1. Format excerpts as `[Doc: {document_id}, Para: {paragraph_ref}] {text}`  
@@ -242,6 +303,15 @@ Default categories:
 6. **Confidence** = mean of top-3 hit scores, clamped to `[0, 1]`
 
 ### Stage E — Confidence gate
+
+```mermaid
+flowchart TD
+    IN["confidence + citations + hits"] --> T{"confidence >= threshold?"}
+    T -->|"no"| R1["REFUSE: below threshold"]
+    T -->|"yes"| C{"All citations have chunk_id?"}
+    C -->|"no"| R2["REFUSE: unverifiable cites"]
+    C -->|"yes"| A["ANSWER"]
+```
 
 `ConfidenceGate.evaluate(confidence, citations, hits)`:
 
@@ -274,23 +344,25 @@ sequenceDiagram
     participant RQ as ReviewQueue
     participant R as Reviewer
 
-    U->>API: POST /api/query (high risk)
-    API->>QS: handle()
-    QS->>RQ: enqueue(pending)
+    U->>API: POST /api/query high risk
+    API->>QS: handle
+    QS->>RQ: enqueue pending
     API-->>U: 202 escalated + reviewItemId
 
     R->>API: GET /api/review-queue
     API-->>R: pending items + redacted question
 
-    R->>API: POST /api/review/{id}/resolve<br/>X-Reviewer-Id + decision
+    R->>API: POST /api/review/id/resolve
+    Note over R,API: Header X-Reviewer-Id + decision
+
     alt approved
-        API->>QS: handle_approved(query_id, redacted_prompt)
+        API->>QS: handle_approved
         QS->>QS: retrieval + LLM + gate
         API-->>R: finalAnswer from pipeline
     else overridden
         API-->>R: finalAnswer = overrideAnswer
     else rejected
-        API-->>R: status rejected (no generation)
+        API-->>R: status rejected no generation
     end
 ```
 
@@ -307,6 +379,17 @@ sequenceDiagram
 ---
 
 ## 7. Audit trail (what events exist)
+
+```mermaid
+flowchart LR
+    A["prompt_received"] --> B["pii_redaction"]
+    B --> C["risk_classification"]
+    C --> D1["escalation"]
+    C --> D2["retrieval"]
+    D2 --> E["generation"]
+    D1 --> F["response_sent"]
+    E --> F
+```
 
 Every query appends chronological `audit_logs` rows. Typical sequence:
 
@@ -328,11 +411,50 @@ Fetch with `GET /api/audit/{queryId}`.
 
 ## 8. Database schema & what each table holds
 
-```
-documents 1───* document_chunks
-queries   1───* answers
-queries   1───* review_queue
-queries   1───* audit_logs
+```mermaid
+erDiagram
+    documents ||--o{ document_chunks : has
+    queries ||--o{ answers : has
+    queries ||--o{ review_queue : may_escalate
+    queries ||--o{ audit_logs : emits
+
+    documents {
+        string document_id PK
+        text title
+        text content_raw
+        jsonb metadata
+    }
+    document_chunks {
+        string chunk_id PK
+        string document_id FK
+        text paragraph_ref
+        text text
+        vector embedding
+    }
+    queries {
+        string query_id PK
+        text original_prompt
+        bool redacted
+        string status
+    }
+    answers {
+        string query_id FK
+        text response_text
+        jsonb citations
+        float confidence_score
+    }
+    review_queue {
+        string item_id PK
+        string query_id FK
+        string status
+        string risk_category
+    }
+    audit_logs {
+        string log_id PK
+        string query_id FK
+        string event_type
+        jsonb output_data
+    }
 ```
 
 | Table | Key fields | Role in data flow |
@@ -352,6 +474,16 @@ Indexes worth mentioning: GIN on `to_tsvector(text)`, IVFFlat on `embedding vect
 
 **User question:**  
 `How long must customer PII be retained after account closure? Contact jane@acme.com`
+
+```mermaid
+flowchart TD
+    Q["User question with email"] --> PII["Redact to Contact EMAIL"]
+    PII --> RISK["Risk = LOW"]
+    RISK --> RET["Hybrid retrieve top-5"]
+    RET --> LLM["LLM cites Doc/Para"]
+    LLM --> GATE["Gate pass"]
+    GATE --> OUT["HTTP 200 answered"]
+```
 
 ### Ingest (already done)
 
@@ -410,7 +542,7 @@ Optional: `POLICYGUARD_PII_STUB=true` disables redaction for isolated tests.
 Use these as “why did you build it this way?” answers.
 
 1. **PII before everything else**  
-   Same gateway on ingest and query so embeddings, stored text, risk regex, and LLM prompts never see raw PII. Detector is in-process regex — no Presidio sidecar.
+   Same gateway on ingest and query so embeddings, stored text, risk regex, and LLM prompts never see raw PII. Detector is in-process regex — no external sidecar.
 
 2. **Risk gate before retrieval/LLM**  
    Saves cost and avoids generating answers for questions that must be human-reviewed (exceptions, data sharing, regulatory interpretation).
@@ -488,6 +620,16 @@ A: Stronger PII (spaCy/GLiNER NER) behind the same `PiiDetector` protocol; learn
 ---
 
 ## 15. Status vocabulary (memorize)
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending: create Query
+    pending --> escalated: HIGH risk
+    pending --> answered: gate pass
+    pending --> refused: no hits / low confidence / bad cites
+    escalated --> answered: reviewer approved + pipeline
+    escalated --> refused: reviewer approved then gate fail
+```
 
 **Query.status:** `pending` → `answered` | `refused` | `escalated`  
 
